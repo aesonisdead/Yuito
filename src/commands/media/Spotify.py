@@ -50,8 +50,7 @@ class Command(BaseCommand):
             caption = f"""🎵 *{name}*
 👤 *Artists:* {artists}
 💿 *Album:* {album}
-🎧 *Preview:* {preview_url if preview_url else 'Not available'}
-©️ Powered By Nexus"""
+🎧 *Preview:* {preview_url if preview_url else 'Not available'} """
 
             if image_bytes:
                 self.client.send_image(M.gcjid, image_bytes, caption=caption)
