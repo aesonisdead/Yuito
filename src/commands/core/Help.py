@@ -85,7 +85,7 @@ I'm *Yuito* ✨
 ➠```#gif, #github, #gsearch, #iplookup, #weather, #urban```
 
 ❯──── Tools ────❮
-➠```#emojimix, #translate, #emojisticker, #sticker, #stickerrename```
+➠```#emojimix, #translate, #emojisticker, #stickertoimage, #sticker, #stickerrename```
 
 📝 *Hint:* Use *#help <command_name>* for detailed info!  
 🌟 *Arigato for Choosing Nexus!* 🌟
