@@ -1,4 +1,6 @@
 from libs import BaseCommand, MessageClass
+import requests
+from io import BytesIO
 
 
 class Command(BaseCommand):
@@ -23,24 +25,18 @@ class Command(BaseCommand):
         query = contex.text.strip().lower() if contex.text else None
 
         if query:
+            # Single command help
             command = self.handler.commands.get(query) or next(
-                (
-                    cmd
-                    for cmd in self.handler.commands.values()
-                    if query in cmd.config.get("aliases", [])
-                ),
+                (cmd for cmd in self.handler.commands.values() if query in cmd.config.get("aliases", [])),
                 None,
             )
-
             if not command:
                 return self.client.reply_message("❌ Command not found.", M)
 
             options = command.config
-            if (
-                M.sender.number not in self.client.config.mods
-                and options.category == "dev"
-            ):
+            if M.sender.number not in self.client.config.mods and options.category == "dev":
                 return self.client.reply_message("❌ Command not found.", M)
+
             desc = options.get("description", {})
             aliases = ", ".join(options.get("aliases", [])) or "No aliases"
             usage = f"{prefix}{options.command} {desc.get('usage', '')}".strip()
@@ -55,49 +51,55 @@ class Command(BaseCommand):
 """
             return self.client.reply_message(help_text, M)
 
-        # Group all commands by category
-        grouped = {}
-        for cmd in self.handler.commands.values():
-            cat = cmd.config.get("category", "Uncategorized").capitalize()
-            grouped.setdefault(cat, []).append(cmd)
+        # Full help menu (static style)
+        final_text = f"""⛩️❯─「 *Nexus Inc* 」─❮⛩️
 
-        emoji_array = ["🎎", "🔰", "🧑‍💻", "🍥", "🔊", "🎼", "🔍", "🧰"]
-        category_names = sorted(grouped.keys())
-        emoji_map = {
-            cat: emoji_array[i % len(emoji_array)]
-            for i, cat in enumerate(category_names)
-        }
+🌸 *Konnichiwaaa* (๑>ᴗ<๑) @{M.sender.username or M.sender.number.split('@')[0]}
+I'm *Yuito* ✨
+🍀 My prefix is *"{prefix}"* ~
 
-        header = f"""
-> 🎫  *{self.client.config.name} Command List*  🎫
+*📭 Command List 📭*
 
-💡 *Prefix:* `{prefix}`
+❯──── Anime ────❮
+➠```#aid, #anime, #character, #cid, #husbu, #kitsune, #manga, #mid, #neko, #waifu```
 
-🎋 *Support us:* 
-https://www.instagram.com/das_abae
-""".strip()
+❯──── Ai ────❮
+➠```#chatgpt, #gemini, #imagine, #remini```
+    
+❯──── Core ────❮
+➠```#blocklist, #groupinfo, #yuito, #help, #hi, #info, #leaderboard, #mods, #support, #whoami, #rank```
 
-        lines = [header]
+❯──── Dev ────❮
+➠```#ban, #broadcast, #disable, #enable, #eval, #unban```
 
-        for cat in category_names:
-            emoji = emoji_map.get(cat, "🔹")
-            if M.sender.number not in self.client.config.mods and cat == "Dev":
-                continue
-            lines.append(f"\n> ━━━━❰ {emoji} *{cat.upper()}* {emoji} ❱━━━━\n")
-            block = []
-            for cmd in grouped[cat]:
-                cfg = cmd.config
-                desc = cfg.get("description", {})
-                usage = desc.get("usage", "")
-                formatted = f"{prefix}{self.client.utils.to_small_caps(cfg.command)} {self.client.utils.to_small_caps(usage)}".strip()
-                block.append(formatted)
-            lines.append("➨ ```" + ", ".join(block) + "```")
+❯──── Fun ────❮
+➠```#advice, #animal, #chess, #charactercheck, #fact, #coinflip, #pick, #reaction, #ship```
 
-        lines.append(
-            "\n📇 *Notes:*"
-            "\n➪ Use `-help <command>` to view details."
-            "\n➪ Example: `-help profile`"
-            "\n➪ <> = required, [ ] = optional (omit brackets when typing)."
-        )
+❯──── Group ────❮
+➠```#add, #demote, #groupannounce, #poll, #groupeditlock, #grouplink, #promote, #remove, #setdesc, #setname, #setphoto, #tagall, #toggle```
 
-        self.client.reply_message("\n".join(lines), M)
+❯──── Media ────❮
+➠```#play, #instagram, #tiktok, #spotify, #twitter, #facebook, #image, #ytaudio, #ytsearch, #ytvideo```
+
+❯──── Search ────❮
+➠```#gif, #github, #gsearch, #iplookup, #weather, #urban```
+
+❯──── Tools ────❮
+➠```#emojimix, #translate, #emojisticker, #sticker, #stickerrename```
+
+📝 *Hint:* Use *#help <command_name>* for detailed info!  
+🌟 *Arigato for Choosing Nexus!* 🌟
+"""
+
+        # Send image from GitHub
+        image_url = "https://raw.githubusercontent.com/aesonisdead/Yuito-V1/refs/heads/main/src/Scarlet-Nexus-Anime-3.jpg"
+        try:
+            resp = requests.get(image_url, timeout=10)
+            if resp.status_code == 200:
+                image_bytes = BytesIO(resp.content).read()
+                self.client.send_image(M.gcjid, image_bytes, caption=final_text)
+            else:
+                self.client.reply_message(final_text, M)
+        except Exception as e:
+            self.client.log.error(f"[HelpImageError] {e}")
+            self.client.reply_message(final_text, M)
