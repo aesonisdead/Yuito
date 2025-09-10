@@ -73,7 +73,7 @@ I'm *Yuito* ✨
 ➠```#ban, #broadcast, #disable, #enable, #eval, #unban```
 
 ❯──── Fun ────❮
-➠```#advice, #animal, #chess, #charactercheck, #fact, #coinflip, #pick, #reaction, #ship```
+➠```#advice, #animal, #charactercheck, #fact, #coinflip, #pick, #reaction, #ship```
 
 ❯──── Group ────❮
 ➠```#add, #demote, #groupannounce, #poll, #groupeditlock, #grouplink, #promote, #remove, #setdesc, #setname, #setphoto, #tagall, #toggle```
