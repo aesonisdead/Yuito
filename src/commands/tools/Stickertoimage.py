@@ -1,6 +1,7 @@
 from libs import BaseCommand, MessageClass
 from PIL import Image
 import io
+import asyncio
 
 class Command(BaseCommand):
     def __init__(self, client, handler):
@@ -15,9 +16,13 @@ class Command(BaseCommand):
             },
         )
 
-    async def exec(self, M: MessageClass, _):
+    def exec(self, M: MessageClass, _):
+        # Run async logic in the background so no 'await' is needed
+        asyncio.create_task(self.run(M))
+
+    async def run(self, M: MessageClass):
         try:
-            # Determine if message is a sticker or is replying to a sticker
+            # Check if the message is a sticker or is replying to a sticker
             sticker_msg = None
             if hasattr(M.Message, "stickerMessage"):
                 sticker_msg = M.Message.stickerMessage
@@ -30,7 +35,7 @@ class Command(BaseCommand):
                 )
                 return
 
-            # Fetch the sticker bytes correctly
+            # Fetch sticker bytes
             sticker_bytes = await self.client.get_bytes_from_name_or_url(sticker_msg)
             if not sticker_bytes or not isinstance(sticker_bytes, (bytes, bytearray)):
                 await self.client.reply_message(
@@ -38,7 +43,7 @@ class Command(BaseCommand):
                 )
                 return
 
-            # Convert WEBP → PNG
+            # Convert WEBP -> PNG
             image = Image.open(io.BytesIO(sticker_bytes)).convert("RGBA")
             buffer = io.BytesIO()
             image.save(buffer, format="PNG")
