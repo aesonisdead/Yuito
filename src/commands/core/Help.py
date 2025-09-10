@@ -92,7 +92,7 @@ I'm *Yuito* ✨
 """
 
         # Send image from GitHub
-        image_url = "https://raw.githubusercontent.com/aesonisdead/Yuito-V1/refs/heads/main/src/Scarlet-Nexus-Anime-3.jpg"
+        image_url = "https://raw.githubusercontent.com/aesonisdead/Yuito/refs/heads/main/src/Yuito.jpg"
         try:
             resp = requests.get(image_url, timeout=10)
             if resp.status_code == 200:
