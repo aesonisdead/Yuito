@@ -17,7 +17,7 @@ class Command(BaseCommand):
 
     def exec(self, M: MessageClass, _):
         try:
-            # Check if the message is a sticker or is replying to a sticker
+            # Get the sticker message
             sticker_msg = None
             if hasattr(M.Message, "stickerMessage"):
                 sticker_msg = M.Message.stickerMessage
@@ -28,8 +28,14 @@ class Command(BaseCommand):
                 self.client.reply_message("⚠️ Please reply to a sticker to convert it.", M)
                 return
 
+            # Use FileSha256 or Url if available
+            file_ref = getattr(sticker_msg, "FileSha256", None) or getattr(sticker_msg, "url", None)
+            if not file_ref:
+                self.client.reply_message("❌ Sticker data missing.", M)
+                return
+
             # Fetch sticker bytes
-            sticker_bytes = self.client.get_bytes_from_name_or_url(sticker_msg)
+            sticker_bytes = self.client.get_bytes_from_name_or_url(file_ref)
             if not sticker_bytes:
                 self.client.reply_message("❌ Failed to fetch sticker data.", M)
                 return
