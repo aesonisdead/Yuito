@@ -60,7 +60,7 @@ class Command(BaseCommand):
                 self.client.send_video(
                     M.gcjid,
                     file=downloaded_file,
-                    caption=f"🎬 *Title:* {title}\n📦 *Size:* {self.client.utils.format_filesize(size)}\n📍 *Link:* {link}\n\nⒸ Powered By Nexus",
+                    caption=f"🎬 *Title:* {title}\n📦 *Size:* {self.client.utils.format_filesize(size)}\n📍 *Link:* {link}\n",
                     quoted=M,
                 )
                 os.remove(downloaded_file)
