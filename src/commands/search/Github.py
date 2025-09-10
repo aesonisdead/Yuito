@@ -22,7 +22,7 @@ class Command(BaseCommand):
         prefix = self.client.config.prefix
         if not contex.text:
             return self.client.reply_message(
-                f"⚠️ Oops! You didn’t define a username — Use `{prefix}github Debanjan-San` to look up users.",
+                f"⚠️ Oops! You didn’t define a username — Use `{prefix}github <Username>` to look up users.",
                 M,
             )
 
