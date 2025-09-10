@@ -24,7 +24,7 @@ class Command(BaseCommand):
 
         if not city:
             return self.client.reply_message(
-                f"⚠️ You didn’t specify a city — use `{prefix}weather kolkata`.",
+                f"⚠️ You didn’t specify a city — use `{prefix}weather casablanca`.",
                 M,
             )
 
