@@ -46,9 +46,9 @@ class Command(BaseCommand):
         random_filename = self.client.utils.random_alpha_string(10)
         output_path = os.path.join("downloads", f"{random_filename}.%(ext)s")
 
-        # Base options
+        # Base options (loosened format for best available mp4)
         ydl_opts = {
-            "format": "best[height<=720]",
+            "format": "bestvideo+bestaudio/best[ext=mp4]",
             "quiet": True,
             "outtmpl": output_path,
             "noplaylist": True,
@@ -56,12 +56,14 @@ class Command(BaseCommand):
             "postprocessors_threads": 2,
         }
 
-        # First try **without cookies** (public video)
+        info = None
+
+        # First try without cookies
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(link, download=True)
         except yt_dlp.utils.DownloadError as e:
-            # Check if it’s restricted/private
+            # If restricted/private, retry with cookies
             if "Restricted" in str(e) or "login_required" in str(e):
                 if os.path.exists(COOKIES_FILE):
                     ydl_opts["cookiefile"] = COOKIES_FILE
@@ -69,12 +71,14 @@ class Command(BaseCommand):
                         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                             info = ydl.extract_info(link, download=True)
                     except Exception as e2:
-                        self.client.reply_message(f"❌ Cannot download restricted/private video:\n{link}", M)
+                        self.client.reply_message(
+                            f"❌ Cannot download restricted/private video:\n{link}", M
+                        )
                         self.client.log.error(f"[InstagramDownloadError] {e2}")
                         return
                 else:
                     self.client.reply_message(
-                        "❌ Video is restricted/private. Provide a valid cookies.txt file.", M
+                        "❌ Video is restricted/private. Add a valid cookies.txt file in your bot root folder.", M
                     )
                     return
             else:
@@ -82,6 +86,12 @@ class Command(BaseCommand):
                 self.client.log.error(f"[InstagramDownloadError] {e}")
                 return
 
+        # If still nothing, give up
+        if not info:
+            self.client.reply_message(f"❌ Could not download video:\n{link}", M)
+            return
+
+        # Finalize
         title = info.get("title", "Unknown Title")
         ext = info.get("ext", "mp4")
         downloaded_file = os.path.join("downloads", f"{random_filename}.{ext}")
@@ -91,7 +101,7 @@ class Command(BaseCommand):
             return
 
         size = os.path.getsize(downloaded_file)
-        if size > 100 * 1024 * 1024:
+        if size > 100 * 1024 * 1024:  # 100 MB limit
             os.remove(downloaded_file)
             self.client.reply_message(
                 f"❌ File size exceeds 100MB for: *{title}* ({self.client.utils.format_filesize(size)})",
@@ -99,6 +109,7 @@ class Command(BaseCommand):
             )
             return
 
+        # Send the video
         self.client.send_video(
             M.gcjid,
             file=downloaded_file,
@@ -118,4 +129,4 @@ class Command(BaseCommand):
             )
 
         for link in M.urls:
-            self.download_queue.put((link, M))
+            self.download_queue.put((link, M))  # Add link to the queue
