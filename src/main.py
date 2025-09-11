@@ -4,12 +4,12 @@ import time
 from config import get_config
 from libs import Void
 from utils import Log
-import threading
 
-def start_bot():
+
+def main():
     config = get_config()
-
     number = config.number or input("📱 Enter your phone number: ").strip()
+
     if not number:
         Log.error("❌ Phone number is required.")
         sys.exit(1)
@@ -20,47 +20,30 @@ def start_bot():
 
     client = Void(config.session, config, Log)
 
+    # Wrap pairing and start in try-except to prevent crashing
     try:
-        # Pair phone only if session not valid
         client.PairPhone(phone=number, show_push_notification=True)
     except Exception as e:
-        Log.critical(f"🚨 Failed to pair phone: {e}")
-        return None
+        Log.critical(f"🚨 Failed to start WhatsApp client: {e}")
+        time.sleep(2)
+        return False  # signal main loop to restart
+    return True
 
-    return client
-
-def run_bot_loop():
-    while True:
-        client = None
-        try:
-            client = start_bot()
-            if not client:
-                Log.error("❌ Client failed to start. Retrying in 5s...")
-                time.sleep(5)
-                continue
-
-            Log.info("✅ Bot is running...")
-
-            # Keep main thread alive
-            while True:
-                time.sleep(1)
-
-        except KeyboardInterrupt:
-            Log.info("🛑 Stopping bot by user.")
-            if client:
-                client.disconnect()
-            break
-
-        except Exception as e:
-            Log.critical(f"🚨 Unexpected error occurred: {e}")
-            if client:
-                try:
-                    client.disconnect()
-                except:
-                    pass
-            Log.info("🔄 Restarting bot due to error...")
-            time.sleep(5)
-            continue
 
 if __name__ == "__main__":
-    run_bot_loop()
+    while True:
+        try:
+            success = main()
+            if success:
+                break  # exit loop if client started successfully
+            else:
+                Log.info("🔄 Restarting due to failed startup...")
+                time.sleep(1)
+        except KeyboardInterrupt:
+            Log.info("🛑 Exiting by user")
+            sys.exit(0)
+        except Exception as e:
+            Log.critical(f"🚨 Unexpected error occurred: {e}")
+            time.sleep(2)
+            Log.info("🔄 Restarting script due to unexpected error...")
+            os.execv(sys.executable, [sys.executable] + sys.argv)
