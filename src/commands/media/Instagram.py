@@ -67,7 +67,7 @@ class Command(BaseCommand):
                     caption=(
                         f"🎬 *Title:* {title}\n"
                         f"📦 *Size:* {self.client.utils.format_filesize(size)}\n"
-                        f"📍 *Link:* {link}\n\nⒸ Powered By Nexus"
+                        f"📍 *Link:* {link}\n"
                     ),
                     quoted=M,
                 )
