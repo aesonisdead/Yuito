@@ -5,7 +5,6 @@ from config import get_config
 from libs import Void
 from utils import Log
 
-
 def main():
     config = get_config()
     number = config.number or input("📱 Enter your phone number: ").strip()
@@ -20,30 +19,22 @@ def main():
 
     client = Void(config.session, config, Log)
 
-    # Wrap pairing and start in try-except to prevent crashing
-    try:
-        client.PairPhone(phone=number, show_push_notification=True)
-    except Exception as e:
-        Log.critical(f"🚨 Failed to start WhatsApp client: {e}")
-        time.sleep(2)
-        return False  # signal main loop to restart
-    return True
-
-
-if __name__ == "__main__":
+    # Keep trying to connect and stay alive
     while True:
         try:
-            success = main()
-            if success:
-                break  # exit loop if client started successfully
-            else:
-                Log.info("🔄 Restarting due to failed startup...")
-                time.sleep(1)
-        except KeyboardInterrupt:
-            Log.info("🛑 Exiting by user")
-            sys.exit(0)
+            client.PairPhone(phone=number, show_push_notification=True)
+            client.RunLoop()  # Keeps the client running
         except Exception as e:
-            Log.critical(f"🚨 Unexpected error occurred: {e}")
-            time.sleep(2)
-            Log.info("🔄 Restarting script due to unexpected error...")
-            os.execv(sys.executable, [sys.executable] + sys.argv)
+            Log.critical(f"🚨 Connection error: {e}")
+            time.sleep(3)  # wait a bit before retrying
+            Log.info("🔄 Attempting to reconnect...")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        Log.info("🛑 Bot stopped by user.")
+    except Exception as e:
+        Log.critical(f"🚨 Fatal error: {e}")
+        time.sleep(3)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
