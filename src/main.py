@@ -4,7 +4,6 @@ import time
 from config import get_config
 from libs import Void
 from utils import Log
-from neonize.events import Event
 
 def main():
     config = get_config()
@@ -20,25 +19,22 @@ def main():
 
     client = Void(config.session, config, Log)
 
-    # Auto-reconnect if connection lost
-    @Event.on('connection_lost')
-    def reconnect(client, *args):
-        client.log.info("⚠️ Connection lost. Attempting to reconnect...")
-        try:
-            client.connect()
-        except Exception as e:
-            client.log.error(f"❌ Reconnect failed: {e}")
+    # Try to pair device
+    try:
+        client.PairPhone(phone=number, show_push_notification=True)
+    except Exception as e:
+        Log.error(f"❌ Failed to pair: {e}")
+        sys.exit(1)
 
-    client.PairPhone(phone=number, show_push_notification=True)
-
-
-if __name__ == "__main__":
+    # Keep bot running
     while True:
         try:
-            main()
-            break
+            client.loop()  # or your client main loop if it has one
         except Exception as e:
-            Log.critical(f"🚨 Unexpected error occurred: {e}")
-            time.sleep(1)
-            Log.info("🔄 Restarting script due to error...")
+            Log.critical(f"🚨 Unexpected error: {e}")
+            Log.info("🔄 Restarting bot after 3s...")
+            time.sleep(3)
             os.execv(sys.executable, [sys.executable] + sys.argv)
+
+if __name__ == "__main__":
+    main()
