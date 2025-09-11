@@ -35,20 +35,27 @@ class Command(BaseCommand):
             try:
                 self.download_video(link, M)
             except Exception as e:
-                self.client.reply_message(f"❌ Error downloading video:\n{link}", M)
+                try:
+                    self.client.reply_message(f"❌ Error downloading video:\n{link}", M)
+                except Exception:
+                    self.client.log.error("⚠️ WhatsApp session not connected. Please re-login.")
                 self.client.log.error(f"[InstagramDownloadError] {e}")
             self.download_queue.task_done()
 
     def download_video(self, link: str, M: MessageClass):
-        self.client.reply_message(f"*🎬 ⏳ Downloading Instagram video...*\nPlease wait...", M)
-        os.makedirs("downloads", exist_ok=True)
+        try:
+            self.client.reply_message(f"*🎬 ⏳ Downloading Instagram video...*\nPlease wait...", M)
+        except Exception:
+            self.client.log.error("⚠️ Cannot send message: WhatsApp session disconnected.")
+            return
 
+        os.makedirs("downloads", exist_ok=True)
         random_filename = self.client.utils.random_alpha_string(10)
         output_path = os.path.join("downloads", f"{random_filename}.%(ext)s")
 
-        # Base options (loosened format for best available mp4)
+        # Base options
         ydl_opts = {
-            "format": "bestvideo+bestaudio/best[ext=mp4]",
+            "format": "best[height<=720]",
             "quiet": True,
             "outtmpl": output_path,
             "noplaylist": True,
@@ -56,77 +63,79 @@ class Command(BaseCommand):
             "postprocessors_threads": 2,
         }
 
-        info = None
-
-        # First try without cookies
+        # Try without cookies first
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(link, download=True)
         except yt_dlp.utils.DownloadError as e:
-            # If restricted/private, retry with cookies
             if "Restricted" in str(e) or "login_required" in str(e):
                 if os.path.exists(COOKIES_FILE):
                     ydl_opts["cookiefile"] = COOKIES_FILE
-                    try:
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                            info = ydl.extract_info(link, download=True)
-                    except Exception as e2:
-                        self.client.reply_message(
-                            f"❌ Cannot download restricted/private video:\n{link}", M
-                        )
-                        self.client.log.error(f"[InstagramDownloadError] {e2}")
-                        return
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(link, download=True)
                 else:
-                    self.client.reply_message(
-                        "❌ Video is restricted/private. Add a valid cookies.txt file in your bot root folder.", M
-                    )
+                    try:
+                        self.client.reply_message("❌ Video is restricted/private. Provide a valid cookies.txt file.", M)
+                    except Exception:
+                        self.client.log.error("⚠️ WhatsApp session not connected.")
                     return
             else:
-                self.client.reply_message(f"❌ Failed to download video:\n{link}", M)
+                try:
+                    self.client.reply_message(f"❌ Failed to download video:\n{link}", M)
+                except Exception:
+                    self.client.log.error("⚠️ WhatsApp session not connected.")
                 self.client.log.error(f"[InstagramDownloadError] {e}")
                 return
 
-        # If still nothing, give up
-        if not info:
-            self.client.reply_message(f"❌ Could not download video:\n{link}", M)
-            return
-
-        # Finalize
         title = info.get("title", "Unknown Title")
         ext = info.get("ext", "mp4")
         downloaded_file = os.path.join("downloads", f"{random_filename}.{ext}")
 
         if not os.path.exists(downloaded_file):
-            self.client.reply_message(f"*❌ Failed to find downloaded video for* {title}", M)
+            try:
+                self.client.reply_message(f"*❌ Failed to find downloaded video for* {title}", M)
+            except Exception:
+                self.client.log.error("⚠️ WhatsApp session not connected.")
             return
 
         size = os.path.getsize(downloaded_file)
-        if size > 100 * 1024 * 1024:  # 100 MB limit
+        if size > 100 * 1024 * 1024:
             os.remove(downloaded_file)
-            self.client.reply_message(
-                f"❌ File size exceeds 100MB for: *{title}* ({self.client.utils.format_filesize(size)})",
-                M,
-            )
+            try:
+                self.client.reply_message(
+                    f"❌ File size exceeds 100MB for: *{title}* ({self.client.utils.format_filesize(size)})",
+                    M,
+                )
+            except Exception:
+                self.client.log.error("⚠️ WhatsApp session not connected.")
             return
 
-        # Send the video
-        self.client.send_video(
-            M.gcjid,
-            file=downloaded_file,
-            caption=(
-                f"🎬 *Title:* {title}\n"
-                f"📦 *Size:* {self.client.utils.format_filesize(size)}\n"
-                f"📍 *Link:* {link}\n"
-            ),
-            quoted=M,
-        )
-        os.remove(downloaded_file)
+        try:
+            self.client.send_video(
+                M.gcjid,
+                file=downloaded_file,
+                caption=(
+                    f"🎬 *Title:* {title}\n"
+                    f"📦 *Size:* {self.client.utils.format_filesize(size)}\n"
+                    f"📍 *Link:* {link}\n"
+                ),
+                quoted=M,
+            )
+        except Exception:
+            self.client.log.error("⚠️ WhatsApp session disconnected. Video was downloaded but not sent.")
+        finally:
+            if os.path.exists(downloaded_file):
+                os.remove(downloaded_file)
 
     def exec(self, M: MessageClass, _):
         if not M.urls:
-            return self.client.reply_message(
-                "*⚠️ Please provide an Instagram video or reel link.*", M
-            )
+            try:
+                return self.client.reply_message(
+                    "*⚠️ Please provide an Instagram video or reel link.*", M
+                )
+            except Exception:
+                self.client.log.error("⚠️ WhatsApp session not connected.")
+                return
 
         for link in M.urls:
-            self.download_queue.put((link, M))  # Add link to the queue
+            self.download_queue.put((link, M))
