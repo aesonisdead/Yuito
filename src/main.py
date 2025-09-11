@@ -4,8 +4,9 @@ import time
 from config import get_config
 from libs import Void
 from utils import Log
+import threading
 
-def main():
+def start_bot():
     config = get_config()
 
     number = config.number or input("📱 Enter your phone number: ").strip()
@@ -19,22 +20,47 @@ def main():
 
     client = Void(config.session, config, Log)
 
-    # Try to pair device
     try:
+        # Pair phone only if session not valid
         client.PairPhone(phone=number, show_push_notification=True)
     except Exception as e:
-        Log.error(f"❌ Failed to pair: {e}")
-        sys.exit(1)
+        Log.critical(f"🚨 Failed to pair phone: {e}")
+        return None
 
-    # Keep bot running
+    return client
+
+def run_bot_loop():
     while True:
+        client = None
         try:
-            client.loop()  # or your client main loop if it has one
+            client = start_bot()
+            if not client:
+                Log.error("❌ Client failed to start. Retrying in 5s...")
+                time.sleep(5)
+                continue
+
+            Log.info("✅ Bot is running...")
+
+            # Keep main thread alive
+            while True:
+                time.sleep(1)
+
+        except KeyboardInterrupt:
+            Log.info("🛑 Stopping bot by user.")
+            if client:
+                client.disconnect()
+            break
+
         except Exception as e:
-            Log.critical(f"🚨 Unexpected error: {e}")
-            Log.info("🔄 Restarting bot after 3s...")
-            time.sleep(3)
-            os.execv(sys.executable, [sys.executable] + sys.argv)
+            Log.critical(f"🚨 Unexpected error occurred: {e}")
+            if client:
+                try:
+                    client.disconnect()
+                except:
+                    pass
+            Log.info("🔄 Restarting bot due to error...")
+            time.sleep(5)
+            continue
 
 if __name__ == "__main__":
-    main()
+    run_bot_loop()
