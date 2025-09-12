@@ -20,16 +20,11 @@ class Command(BaseCommand):
         user = self.client.db.get_user_by_number(M.sender.number)
         exp = getattr(user, "exp", 0)
 
-        # Build the sender's full JID dynamically (works with your MessageClass)
-        sender_jid = self.client.build_jid(M.sender.number)
+        # Display sender number
         sender_number_for_display = M.sender.number
 
         # Create the reply text
         reply_text = f"🎯 Hey @{sender_number_for_display}! Your current EXP is: *{exp}*."
 
-        # Send the message and mention the user
-        self.client.reply_message(
-            reply_text,
-            M,
-            mentions=[sender_jid]
-        )
+        # Send the message with proper group tagging
+        self.client.reply_message_tag(reply_text, M)
