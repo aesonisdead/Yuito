@@ -1,6 +1,7 @@
 from libs import BaseCommand, MessageClass
 
 class Command(BaseCommand):
+
     def __init__(self, client, handler):
         super().__init__(
             client,
@@ -17,11 +18,12 @@ class Command(BaseCommand):
         user = self.client.db.get_user_by_number(M.sender.number)
         exp = getattr(user, "exp", 0)
 
-        reply_text = f"🎯 Hey @{M.sender.number}! Your current EXP is: *{exp}*."
+        reply_text = f"🎯 Hey! Your current EXP is: *{exp}*."
 
-        # --- USE FIXED TAGGING ---
-        self.client.reply_message_tag(
-            reply_text,
-            M,
-            mentions=[M.sender.jid]  # full JID as string
+        # --- FIX: send with ghost_mentions for proper tagging ---
+        recipient_jid = M.gcjid if M.chat == "group" else M.sender.jid
+        self.client.send_message(
+            to=self.client.build_jid(recipient_jid),
+            message=reply_text,
+            ghost_mentions=[M.sender.jid]
         )
