@@ -14,12 +14,15 @@ class Command(BaseCommand):
         )
 
     def exec(self, M: MessageClass, _):
-        # Get user and EXP
         user = self.client.db.get_user_by_number(M.sender.number)
         exp = getattr(user, "exp", 0)
 
-        # Prepare reply text
+        # Build the message text (display number)
         reply_text = f"🎯 Hey @{M.sender.number}! Your current EXP is: *{exp}*."
 
-        # Send message with proper tagging
-        self.client.reply_message_tag(reply_text, M)
+        # Use reply_message_tag and pass the actual JID for mentions
+        self.client.reply_message_tag(
+            text=reply_text,        # message content
+            M=M,                    # the original message
+            mentions=[M.sender.jid] # pass JID object here for tagging
+        )
