@@ -9,26 +9,30 @@ from neonize.events import (
     ConnectedEv,
     MessageEv,
     JoinedGroupEv,
-    GroupInfoEv,
     CallOfferEv,
+    GroupInfoEv,
     PairStatusEv,
     event,
 )
 
+
 sys.path.insert(0, os.getcwd())
+
 
 def interrupted(*_):
     event.set()
 
-log = logging.getLogger()
+
 log.setLevel(logging.INFO)
+
 
 class Void(NewClient):
     def __init__(self, db_path, config, log):
         super().__init__(db_path)
+
         self.__msg_id = []
 
-        # Register event handlers
+        # Register the methods as event handlers
         self.event(MessageEv)(self.on_message)
         self.event(ConnectedEv)(self.on_connected)
         self.event(GroupInfoEv)(self.on_groupevent)
@@ -37,7 +41,7 @@ class Void(NewClient):
         self.event(PairStatusEv)(self.on_pair_status)
         self.event.paircode(self.on_paircode)
 
-        # Utilities
+        # Register all the methords from client utils
         self.extract_text = extract_text
         self.FFmpeg = FFmpeg
         self.save_file_to_temp_directory = save_file_to_temp_directory
@@ -62,7 +66,6 @@ class Void(NewClient):
         self.validate_link = validate_link
         self.gen_vcard = gen_vcard
 
-        # Configs
         self.config = config
         self.__event = Event(self)
         self.__message = Message(self)
@@ -73,12 +76,15 @@ class Void(NewClient):
     def on_message(self, _: NewClient, message: MessageEv):
         if message.Info.ID not in self.__msg_id:
             from libs import MessageClass
+
             self.__msg_id.append(message.Info.ID)
             self.__message.handler(MessageClass(self, message).build())
 
     def on_connected(self, _: NewClient, __: ConnectedEv):
         self.__message.load_commands("src/commands")
-        self.log.info(f"⚡ Connected to {self.config.name} with prefix {self.config.prefix}")
+        self.log.info(
+            f"⚡ Connected to {self.config.name} and prefix is {self.config.prefix}"
+        )
 
     def on_paircode(self, _: NewClient, code: str, connected: bool = True):
         if connected:
@@ -117,22 +123,4 @@ class Void(NewClient):
         ]
 
     def on_pair_status(self, _: NewClient, message: PairStatusEv):
-        self.log.info(f"Logged in as {message.ID.User}")
-
-    # --- New helper for tagging ---
-    def reply_message_tag(self, text: str, message_obj):
-        try:
-            to_jid = message_obj.sender_jid
-            if isinstance(to_jid, list):
-                # Handle list of JIDs in group message
-                ghost_mentions = [str(jid) for jid in to_jid]
-            else:
-                ghost_mentions = [str(to_jid)]
-
-            self.send_message(
-                to=message_obj.chat_id,
-                message=text,
-                ghost_mentions=ghost_mentions,
-            )
-        except Exception as e:
-            self.log.error(f"Error in reply_message_tag: {e}")
+        self.log.info(f"logged as {message.ID.User}")
