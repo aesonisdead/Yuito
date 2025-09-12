@@ -118,28 +118,20 @@ class Void(NewClient):
     def on_pair_status(self, _: NewClient, message: PairStatusEv):
         self.log.info(f"logged as {message.ID.User}")
 
-    # --- FIXED reply_message_tag ---
+    # --- WORKING reply_message_tag ---
     def reply_message_tag(self, text: str, M):
         """
         Reply to a message with proper tagging of the sender.
         Works in DMs and group chats.
         """
         try:
-            # Always mention the sender's JID
             mentions = [M.sender_jid]
-
-            # Determine chat ID
             chat_id = M.gcjid if getattr(M, "chat", "dm") == "group" else self.build_jid(M.sender.number)
 
-            # Send message with mentions
-            self.send_message(
-                chat_id,
-                text,
-                context_info={"mentionedJid": mentions} if getattr(M, "chat", "dm") == "group" else None,
-                reply_to_message_id=getattr(M, "message_id", None),
-            )
+            # send_message with proper tagging (positional args)
+            self.send_message(chat_id, text, mentions)
 
         except Exception as e:
-            self.log.error("Error in reply_message_tag: {e}")
+            self.log.error(f"Error in reply_message_tag: {e}")
             # fallback
             self.reply_message(text, M)
