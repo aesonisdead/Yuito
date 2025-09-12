@@ -14,30 +14,31 @@ class Command(BaseCommand):
         )
 
     def exec(self, M: MessageClass, _):
-        # Get sender number
-        number = getattr(M.sender, "number", "")
-        if not number:
-            number = "0000000000"  # fallback number
+        # Get sender EXP from DB
+        user = self.client.db.get_user_by_number(getattr(M.sender, "number", ""))
+        exp = getattr(user, "exp", 0)
 
-        # Build proper WhatsApp JID
-        sender_jid = f"{number}@s.whatsapp.net"
+        # Get sender JID
+        sender_jid = getattr(M.sender, "jid", "")
 
-        # Ensure correct group participant JID if in group
+        # If in a group, ensure we use the correct participant JID
         if getattr(M, "is_group", False):
             try:
                 participants = self.client.get_group_members(M.chat)
                 for p in participants:
-                    if getattr(p, "number", "") == number:
+                    if getattr(p, "number", "") == getattr(M.sender, "number", ""):
                         sender_jid = getattr(p, "jid", sender_jid)
                         break
             except Exception:
                 pass
 
-        # Set mentioned_jid for Neonize
-        M.mentioned_jid = [sender_jid]
+        # Compose message
+        text = f"🎯 Hey! Your current EXP is: *{exp}*."
 
-        # Use proper <@JID> format
-        text = f"🎯 Hey <@{sender_jid}>! Your current EXP is: *0*."
-
-        # Send the message
-        self.client.reply_message(text, M)
+        # Use Neonize's built-in method for tagging
+        # This ensures WhatsApp highlights the sender properly
+        self.client.tag(
+            chat_id=M.chat,
+            text=text,
+            mentioned_jid=[sender_jid]
+        )
