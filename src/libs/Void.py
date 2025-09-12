@@ -17,11 +17,6 @@ from neonize.events import (
 
 sys.path.insert(0, os.getcwd())
 
-
-def interrupted(*_):
-    event.set()
-
-
 log.setLevel(logging.INFO)
 
 
@@ -31,7 +26,7 @@ class Void(NewClient):
 
         self.__msg_id = []
 
-        # Register the methods as event handlers
+        # Register event handlers
         self.event(MessageEv)(self.on_message)
         self.event(ConnectedEv)(self.on_connected)
         self.event(GroupInfoEv)(self.on_groupevent)
@@ -40,7 +35,7 @@ class Void(NewClient):
         self.event(PairStatusEv)(self.on_pair_status)
         self.event.paircode(self.on_paircode)
 
-        # Register all the methods from client utils
+        # Register client utils
         self.extract_text = extract_text
         self.FFmpeg = FFmpeg
         self.save_file_to_temp_directory = save_file_to_temp_directory
@@ -72,10 +67,9 @@ class Void(NewClient):
         self.db = Database(config.uri)
         self.log = log
 
-    def on_message(self, _: NewClient, message: MessageEv):
+    def on_message(self, _: NewClient, message):
         if message.Info.ID not in self.__msg_id:
             from libs import MessageClass
-
             self.__msg_id.append(message.Info.ID)
             self.__message.handler(MessageClass(self, message).build())
 
@@ -131,31 +125,21 @@ class Void(NewClient):
         Works in DMs and group chats.
         """
         try:
-            # Extract raw number from sender_jid
-            raw_number = getattr(M.sender_jid, "user", None) or getattr(M.sender, "number", None)
-            if not raw_number:
-                raw_number = M.sender.number  # fallback
-
-            # Prepend + to make proper phone format
-            proper_number = f"+{raw_number}"
-
-            # Build final text
-            final_text = text.replace(str(M.sender.number), proper_number)
+            # Always mention the sender's JID
+            mentions = [M.sender_jid]
 
             # Determine chat ID
-            if getattr(M, "chat", "dm") == "group":
-                chat_id = M.gcjid
-                context_info = {"mentionedJid": [f"{raw_number}@s.whatsapp.net"]}
-                self.send_message(chat_id, final_text, context_info)
-            else:
-                # DM
-                chat_id = self.build_jid(raw_number)
-                self.send_message(chat_id, final_text)
+            chat_id = M.gcjid if getattr(M, "chat", "dm") == "group" else self.build_jid(M.sender.number)
+
+            # Send message with mentions
+            self.send_message(
+                chat_id,
+                text,
+                context_info={"mentionedJid": mentions} if getattr(M, "chat", "dm") == "group" else None,
+                reply_to_message_id=getattr(M, "message_id", None),
+            )
 
         except Exception as e:
-            try:
-                self.log.error("Error in reply_message_tag: %s", e)
-                # fallback
-                self.reply_message(text, M)
-            except Exception:
-                pass
+            self.log.error("Error in reply_message_tag: %s", e)
+            # fallback
+            self.reply_message(text, M)
