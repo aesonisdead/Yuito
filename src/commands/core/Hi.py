@@ -1,5 +1,4 @@
 from libs import BaseCommand, MessageClass
-from libs.tag_utils import format_mention
 
 class Command(BaseCommand):
     def __init__(self, client, handler):
@@ -23,12 +22,11 @@ class Command(BaseCommand):
         display_name = getattr(M.sender, "pushname", None) or getattr(M.sender, "number", "Unknown")
         jid = getattr(M.sender, "jid", "")
 
+        # Set mentions for Neonize internally
+        M.mentioned_jid = [jid]
+
         # Compose message
         text = f"🎯 Hey @{display_name}! Your current EXP is: *{exp}*."
 
-        # Send message using proper mentions argument
-        self.client.reply_message(
-            text,
-            M,
-            mentions=[jid]  # <- this is the fix
-        )
+        # Reply (no extra args)
+        self.client.reply_message(text, M)
