@@ -13,13 +13,18 @@ class MessageClass:
         self.gcjid = self.Info.MessageSource.Chat
         self.chat = "group" if self.Info.MessageSource.IsGroup else "dm"
 
-        # --- FIXED: store sender JID as string ---
-        sender_jid_obj = self.Info.MessageSource.Sender
-        self.sender = DynamicConfig({
-            "number": sender_jid_obj.User,
-            "jid": f"{sender_jid_obj.User}@s.whatsapp.net",
-            "username": client.contact.get_contact(sender_jid_obj).PushName
-        })
+        # --- FIX: store full JID properly ---
+        sender_number = self.Info.MessageSource.Sender.User
+        sender_jid_obj = getattr(self.Info.MessageSource.Sender, "JID", None)
+        self.sender = DynamicConfig(
+            {
+                "number": sender_number,
+                "jid": str(sender_jid_obj) if sender_jid_obj else self.__client.build_jid(sender_number),
+                "username": self.__client.contact.get_contact(
+                    self.__client.build_jid(sender_number)
+                ).PushName,
+            }
+        )
 
         self.urls = []
         self.numbers = []
@@ -32,21 +37,30 @@ class MessageClass:
 
             if ctx_info.HasField("quotedMessage"):
                 self.quoted = ctx_info.quotedMessage
+
                 if ctx_info.HasField("participant"):
                     quoted_number = ctx_info.participant.split("@")[0]
-                    self.quoted_user = DynamicConfig({
-                        "number": quoted_number,
-                        "jid": ctx_info.participant,
-                        "username": client.contact.get_contact(ctx_info.participant).PushName
-                    })
+                    self.quoted_user = DynamicConfig(
+                        {
+                            "number": quoted_number,
+                            "username": client.contact.get_contact(
+                                client.build_jid(quoted_number)
+                            ).PushName,
+                        }
+                    )
 
             for jid in ctx_info.mentionedJID:
                 number = jid.split("@")[0]
-                self.mentioned.append(DynamicConfig({
-                    "number": number,
-                    "jid": jid,
-                    "username": client.contact.get_contact(jid).PushName
-                }))
+                self.mentioned.append(
+                    DynamicConfig(
+                        {
+                            "number": number,
+                            "username": client.contact.get_contact(
+                                client.build_jid(number)
+                            ).PushName,
+                        }
+                    )
+                )
 
     def build(self):
         self.urls = self.__client.utils.get_urls(self.content)
@@ -55,8 +69,10 @@ class MessageClass:
         if self.chat == "group":
             self.group = self.__client.get_group_info(self.gcjid)
             self.isAdminMessage = (
-                self.sender.number in self.__client.filter_admin_users(self.group.Participants)
+                self.sender.number
+                in self.__client.filter_admin_users(self.group.Participants)
             )
+
         return self
 
     def raw(self):
