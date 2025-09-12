@@ -17,5 +17,5 @@ class Command(BaseCommand):
         start = time.time()
         # Send the latency message directly
         latency = round((time.time() - start) * 1000)
-        self.client.reply_message(f"*Yuito is alive! latency: {latency}ms 🟢*", M)
+        self.client.reply_message(f"*Yuito is alive!* ```latency: {latency}ms 🟢```", M)
       
