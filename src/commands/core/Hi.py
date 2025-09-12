@@ -1,35 +1,19 @@
-from libs import BaseCommand, MessageClass
+# src/commands/core/Hi.py
 
-class Command(BaseCommand):
+from libs import BaseCommand
 
-    def __init__(self, client, handler):
-        super().__init__(
-            client,
-            handler,
-            {
-                "command": "hi",
-                "category": "core",
-                "description": {"content": "Say hello to the bot"},
-                "exp": 1,
-            },
-        )
+class HiCmd(BaseCommand):
+    name = "hi"
+    category = "Core"
+    description = "Say hi and show EXP"
 
-    def exec(self, M: MessageClass, _):
-        user = self.client.db.get_user_by_number(M.sender.number)
-        exp = getattr(user, "exp", 0)
+    def exec(self, M, contex):
+        try:
+            exp = contex.get_user_exp(M.sender.number)  # assuming you have a method to get user EXP
+            reply_text = f"🎯 Hey! Your current EXP is: *{exp}*."
 
-        # CLEAN the number
-        sender_number = str(M.sender.number).replace('User: ', '').replace('"', '').strip()
+            # Send the reply using the proper tagging
+            self.client.reply_message_tag(reply_text, M)
 
-        # Compose message
-        reply_text = f"🎯 Hey @{sender_number}! Your current EXP is: *{exp}*."
-
-        # Determine target JID
-        to_jid = M.gcjid if M.chat == "group" else sender_number
-        to_jid = str(to_jid).replace('User: ', '').replace('"', '').strip()
-
-        # Send message — don't put ghost_mentions as list if message contains @
-        self.client.send_message(
-            to=self.client.build_jid(to_jid),
-            message=reply_text
-        )
+        except Exception as e:
+            self.client.log.error(f"Hi command failed: {e}")
