@@ -140,6 +140,6 @@ class Void(NewClient):
             )
 
         except Exception as e:
-            self.log.error("Error in reply_message_tag: %s", e)
+            self.log.error("Error in reply_message_tag: {e}")
             # fallback
             self.reply_message(text, M)
