@@ -41,7 +41,7 @@ class Void(NewClient):
         self.event(PairStatusEv)(self.on_pair_status)
         self.event.paircode(self.on_paircode)
 
-        # Register all the methords from client utils
+        # Register all the methods from client utils
         self.extract_text = extract_text
         self.FFmpeg = FFmpeg
         self.save_file_to_temp_directory = save_file_to_temp_directory
@@ -124,3 +124,28 @@ class Void(NewClient):
 
     def on_pair_status(self, _: NewClient, message: PairStatusEv):
         self.log.info(f"logged as {message.ID.User}")
+
+    # --- START OF FIX ---
+    def reply_message_tag(self, text: str, M):
+        """
+        Sends a message replying to M, and tags the sender in groups.
+        In DMs, it just sends normally.
+        """
+        # Build sender full JID
+        sender_jid = self.build_jid(M.sender.number)
+
+        # Determine chat type
+        if getattr(M, "chat", "dm") == "group":
+            context_info = {"mentionedJid": [sender_jid]}
+            chat_id = M.gcjid
+        else:
+            context_info = None
+            chat_id = sender_jid
+
+        # Send the message
+        self.send_message(
+            text=text,
+            chat_id=chat_id,
+            context_info=context_info,
+        )
+    # --- END OF FIX ---
