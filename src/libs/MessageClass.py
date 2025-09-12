@@ -1,149 +1,33 @@
-import logging
-import os
-import sys
-from neonize import NewClient
-from handlers import Database, Message, Event
-from neonize.utils import *
+from libs import Void
 from utils import Utils
-from neonize.events import (
-    ConnectedEv,
-    MessageEv,
-    JoinedGroupEv,
-    GroupInfoEv,
-    CallOfferEv,
-    PairStatusEv,
-    event,
-)
 
-sys.path.insert(0, os.getcwd())
+class MessageClass:
+    def __init__(self, client: Void, message):
+        self.client = client
+        self.Info = message.Info
+        self.raw_message = message
+        self.chat_id = str(self.Info.Chat.JID.User) if hasattr(self.Info.Chat.JID, 'User') else str(self.Info.Chat.JID)
+        self.is_group = getattr(self.Info.Chat, 'IsGroup', False)
 
-def interrupted(*_):
-    event.set()
-
-log = logging.getLogger()
-log.setLevel(logging.INFO)
-
-class Void(NewClient):
-    def __init__(self, db_path, config, log):
-        super().__init__(db_path)
-
-        self.__msg_id = []
-
-        # Register event handlers
-        self.event(MessageEv)(self.on_message)
-        self.event(ConnectedEv)(self.on_connected)
-        self.event(GroupInfoEv)(self.on_groupevent)
-        self.event(JoinedGroupEv)(self.on_joined)
-        self.event(CallOfferEv)(self.on_call)
-        self.event(PairStatusEv)(self.on_pair_status)
-        self.event.paircode(self.on_paircode)
-
-        # Utils
-        self.extract_text = extract_text
-        self.FFmpeg = FFmpeg
-        self.save_file_to_temp_directory = save_file_to_temp_directory
-        self.get_bytes_from_name_or_url = get_bytes_from_name_or_url
-        self.AspectRatioMethod = AspectRatioMethod
-        self.build_jid = build_jid
-        self.Jid2String = Jid2String
-        self.JIDToNonAD = JIDToNonAD
-        self.MediaType = MediaType
-        self.MediaTypeToMMS = MediaTypeToMMS
-        self.BlocklistAction = BlocklistAction
-        self.ChatPresence = ChatPresence
-        self.ChatPresenceMedia = ChatPresenceMedia
-        self.ClientName = ClientName
-        self.ClientType = ClientType
-        self.ParticipantChange = ParticipantChange
-        self.ParticipantRequestChange = ParticipantRequestChange
-        self.PrivacySetting = PrivacySetting
-        self.PrivacySettingType = PrivacySettingType
-        self.ReceiptType = ReceiptType
-        self.add_exif = add_exif
-        self.validate_link = validate_link
-        self.gen_vcard = gen_vcard
-
-        self.config = config
-        self.__event = Event(self)
-        self.__message = Message(self)
-        self.utils = Utils()
-        self.db = Database(config.uri)
-        self.log = log
-
-    # -------------------------
-    # Event handlers
-    # -------------------------
-    def on_message(self, _: NewClient, message: MessageEv):
-        if message.Info.ID not in self.__msg_id:
-            from libs import MessageClass
-            self.__msg_id.append(message.Info.ID)
-            self.__message.handler(MessageClass(self, message).build())
-
-    def on_connected(self, _: NewClient, __: ConnectedEv):
-        self.__message.load_commands("src/commands")
-        self.log.info(
-            f"⚡ Connected to {self.config.name} and prefix is {self.config.prefix}"
-        )
-
-    def on_paircode(self, _: NewClient, code: str, connected: bool = True):
-        if connected:
-            self.log.info("Pair code successfully processed: %s", code)
-        else:
-            self.log.info("Pair code: %s", code)
-
-    def on_groupevent(self, _, event: GroupInfoEv):
-        self.__event.on_groupevent(event)
-
-    def on_joined(self, _, event: JoinedGroupEv):
-        self.__event.on_joined(event)
-
-    def on_call(self, _, event: CallOfferEv):
-        self.__event.on_call(event)
-
-    def on_pair_status(self, _: NewClient, message: PairStatusEv):
-        self.log.info(f"Logged as {message.ID.User}")
-
-    # -------------------------
-    # Utility methods
-    # -------------------------
-    @staticmethod
-    def detect_message_type(msg) -> str | None:
-        message_types = {
-            "imageMessage": "IMAGE",
-            "audioMessage": "AUDIO",
-            "videoMessage": "VIDEO",
-            "documentMessage": "DOCUMENT",
-            "stickerMessage": "STICKER",
-        }
-        for attr, desc in message_types.items():
-            if msg.HasField(attr):
-                return desc
-        return None
-
-    def filter_admin_users(self, participants):
-        return [
-            participant.JID.User
-            for participant in participants
-            if participant.IsAdmin
-        ]
-
-    def reply_message_tag(self, text: str, msg, ghost_mentions: list[str] | None = None):
-        """
-        Send a message that tags the sender or specific users.
-        """
+        # Extract sender JID correctly
         try:
-            # Determine who to send to
-            to_jid = msg.gcjid if getattr(msg, "chat", None) == "group" else msg.sender.number
+            self.sender_jid = str(self.Info.MessageSource.Sender.JID.User)
+        except AttributeError:
+            self.sender_jid = str(self.Info.MessageSource.Sender.JID)
 
-            # Determine who to mention
-            mentions = [msg.sender.number] if ghost_mentions is None else ghost_mentions
+        # Sender display name
+        try:
+            self.sender_name = client.contact.get_contact(self.sender_jid).PushName
+        except Exception:
+            self.sender_name = "User"
 
-            # Send message
-            self.send_message(
-                to=self.build_jid(to_jid),
-                message=text,
-                ghost_mentions=mentions,
-                mentions_are_lids=False,
-            )
-        except Exception as e:
-            self.log.error(f"Error in reply_message_tag: {e}")
+        # Message type
+        self.msg_type = client.detect_message_type(self.Info.Message)
+
+        # Message content
+        self.text = getattr(self.Info.Message, 'conversation', None) or ""
+        self.quoted_message = getattr(self.Info.Message, 'contextInfo', None)
+
+    def build(self):
+        # Build the dict/object to pass to command handlers
+        return self
