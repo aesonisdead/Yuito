@@ -1,72 +1,145 @@
-from libs import Void
-from utils import DynamicConfig
-from neonize.events import MessageEv
+import logging
+import os
+import sys
+from neonize import NewClient
+from handlers import Database, Message, Event
+from neonize.utils import *
+from utils import Utils
+from neonize.events import (
+    ConnectedEv,
+    MessageEv,
+    JoinedGroupEv,
+    GroupInfoEv,
+    CallOfferEv,
+    PairStatusEv,
+    event,
+)
+
+sys.path.insert(0, os.getcwd())
+
+log = logging.getLogger(__name__)
+
+def interrupted(*_):
+    event.set()
+
+log.setLevel(logging.INFO)
 
 
-class MessageClass:
-    def __init__(self, client: Void, message: MessageEv):
-        self.__client = client
-        self.__M = message
+class Void(NewClient):
+    def __init__(self, db_path, config, log):
+        super().__init__(db_path)
 
-        self.Info = message.Info
-        self.Message = message.Message
-        self.content = client.extract_text(self.Message)
-        self.gcjid = self.Info.MessageSource.Chat
-        self.chat = "group" if self.Info.MessageSource.IsGroup else "dm"
+        self.__msg_id = []
 
-        # Get the sender JID as a proper string
-        self.sender_number = str(self.Info.MessageSource.Sender.User)
-        self.sender = DynamicConfig(
-            {
-                "number": self.sender_number,
-                "username": client.contact.get_contact(self.sender_number).PushName,
-            }
+        # Register the methods as event handlers
+        self.event(MessageEv)(self.on_message)
+        self.event(ConnectedEv)(self.on_connected)
+        self.event(GroupInfoEv)(self.on_groupevent)
+        self.event(JoinedGroupEv)(self.on_joined)
+        self.event(CallOfferEv)(self.on_call)
+        self.event(PairStatusEv)(self.on_pair_status)
+        self.event.paircode(self.on_paircode)
+
+        # Client utilities
+        self.extract_text = extract_text
+        self.FFmpeg = FFmpeg
+        self.save_file_to_temp_directory = save_file_to_temp_directory
+        self.get_bytes_from_name_or_url = get_bytes_from_name_or_url
+        self.AspectRatioMethod = AspectRatioMethod
+        self.build_jid = build_jid
+        self.Jid2String = Jid2String
+        self.JIDToNonAD = JIDToNonAD
+        self.MediaType = MediaType
+        self.MediaTypeToMMS = MediaTypeToMMS
+        self.BlocklistAction = BlocklistAction
+        self.ChatPresence = ChatPresence
+        self.ChatPresenceMedia = ChatPresenceMedia
+        self.ClientName = ClientName
+        self.ClientType = ClientType
+        self.ParticipantChange = ParticipantChange
+        self.ParticipantRequestChange = ParticipantRequestChange
+        self.PrivacySetting = PrivacySetting
+        self.PrivacySettingType = PrivacySettingType
+        self.ReceiptType = ReceiptType
+        self.add_exif = add_exif
+        self.validate_link = validate_link
+        self.gen_vcard = gen_vcard
+
+        self.config = config
+        self.__event = Event(self)
+        self.__message = Message(self)
+        self.utils = Utils()
+        self.db = Database(config.uri)
+        self.log = log
+
+    # Event handlers
+    def on_message(self, _: NewClient, message: MessageEv):
+        if message.Info.ID not in self.__msg_id:
+            from libs import MessageClass
+            self.__msg_id.append(message.Info.ID)
+            self.__message.handler(MessageClass(self, message).build())
+
+    def on_connected(self, _: NewClient, __: ConnectedEv):
+        self.__message.load_commands("src/commands")
+        self.log.info(
+            f"⚡ Connected to {self.config.name} and prefix is {self.config.prefix}"
         )
 
-        self.urls = []
-        self.numbers = []
-        self.quoted = None
-        self.quoted_user = None
-        self.mentioned = []
+    def on_paircode(self, _: NewClient, code: str, connected: bool = True):
+        if connected:
+            self.log.info("Pair code successfully processed: %s", code)
+        else:
+            self.log.info("Pair code: %s", code)
 
-        if self.Message.HasField("extendedTextMessage"):
-            ctx_info = self.Message.extendedTextMessage.contextInfo
+    def on_groupevent(self, _, event: GroupInfoEv):
+        self.__event.on_groupevent(event)
 
-            if ctx_info.HasField("quotedMessage"):
-                self.quoted = ctx_info.quotedMessage
+    def on_joined(self, _, event: JoinedGroupEv):
+        self.__event.on_joined(event)
 
-                if ctx_info.HasField("participant"):
-                    quoted_number = str(ctx_info.participant.split("@")[0])
-                    self.quoted_user = DynamicConfig(
-                        {
-                            "number": quoted_number,
-                            "username": client.contact.get_contact(quoted_number).PushName,
-                        }
-                    )
+    def on_call(self, _, event: CallOfferEv):
+        self.__event.on_call(event)
 
-            for jid in ctx_info.mentionedJID:
-                number = str(jid.split("@")[0])
-                self.mentioned.append(
-                    DynamicConfig(
-                        {
-                            "number": number,
-                            "username": client.contact.get_contact(number).PushName,
-                        }
-                    )
-                )
+    def on_pair_status(self, _: NewClient, message: PairStatusEv):
+        self.log.info(f"logged as {message.ID.User}")
 
-    def build(self):
-        self.urls = self.__client.utils.get_urls(self.content)
-        self.numbers = self.__client.utils.extract_numbers(self.content)
+    @staticmethod
+    def detect_message_type(msg) -> str | None:
+        message_types = {
+            "imageMessage": "IMAGE",
+            "audioMessage": "AUDIO",
+            "videoMessage": "VIDEO",
+            "documentMessage": "DOCUMENT",
+            "stickerMessage": "STICKER",
+        }
+        for attr, desc in message_types.items():
+            if msg.HasField(attr):
+                return desc
+        return None
 
-        if self.chat == "group":
-            self.group = self.__client.get_group_info(self.gcjid)
-            self.isAdminMessage = (
-                self.sender.number
-                in self.__client.filter_admin_users(self.group.Participants)
+    def filter_admin_users(self, participants):
+        return [
+            participant.JID.User
+            for participant in participants
+            if participant.IsAdmin
+        ]
+
+    # Fixed method for tagged replies
+    def reply_message_tag(self, text: str, msg, ghost_mentions: list[str] | None = None):
+        """
+        Send a message that tags the sender or specific users.
+        `msg` must be a MessageClass object
+        """
+        try:
+            to_jid = msg.gcjid if msg.chat == "group" else msg.sender.number
+            # Determine mentions
+            mentions = [msg.sender.number] if ghost_mentions is None else ghost_mentions
+            # Send the message
+            self.send_message(
+                to=self.build_jid(to_jid),
+                message=text,
+                ghost_mentions=mentions,
+                mentions_are_lids=False,
             )
-
-        return self
-
-    def raw(self):
-        return self.__M
+        except Exception as e:
+            self.log.error(f"Error in reply_message_tag: {e}")
