@@ -17,6 +17,7 @@ from neonize.events import (
 
 sys.path.insert(0, os.getcwd())
 
+log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 
@@ -35,7 +36,7 @@ class Void(NewClient):
         self.event(PairStatusEv)(self.on_pair_status)
         self.event.paircode(self.on_paircode)
 
-        # Register client utils
+        # Utils
         self.extract_text = extract_text
         self.build_jid = build_jid
         self.utils = Utils()
@@ -45,12 +46,38 @@ class Void(NewClient):
         self.__event = Event(self)
         self.config = config
 
+    # --- Event handlers ---
     def on_message(self, _: NewClient, message):
         if message.Info.ID not in self.__msg_id:
             from libs import MessageClass
             self.__msg_id.append(message.Info.ID)
             self.__message.handler(MessageClass(self, message).build())
 
+    def on_connected(self, _: NewClient, __: ConnectedEv):
+        self.__message.load_commands("src/commands")
+        self.log.info(
+            f"⚡ Connected to {self.config.name} and prefix is {self.config.prefix}"
+        )
+
+    def on_paircode(self, _: NewClient, code: str, connected: bool = True):
+        if connected:
+            self.log.info("Pair code successfully processed: %s", code)
+        else:
+            self.log.info("Pair code: %s", code)
+
+    def on_groupevent(self, _, event: GroupInfoEv):
+        self.__event.on_groupevent(event)
+
+    def on_joined(self, _, event: JoinedGroupEv):
+        self.__event.on_joined(event)
+
+    def on_call(self, _, event: CallOfferEv):
+        self.__event.on_call(event)
+
+    def on_pair_status(self, _: NewClient, message):
+        self.log.info(f"logged as {message.ID.User}")
+
+    # --- Messaging utilities ---
     def reply_message_tag(self, text: str, M):
         """
         Reply to a message with proper tagging of the sender.
@@ -67,4 +94,13 @@ class Void(NewClient):
 
         except Exception as e:
             self.log.error(f"Error in reply_message_tag: {e}")
+            # fallback
             self.reply_message(text, M)
+
+    # --- Other utilities ---
+    def filter_admin_users(self, participants):
+        return [
+            participant.JID.User
+            for participant in participants
+            if participant.IsAdmin
+        ]
