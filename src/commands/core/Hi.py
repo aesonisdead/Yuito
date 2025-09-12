@@ -20,17 +20,14 @@ class Command(BaseCommand):
 
         reply_text = f"🎯 Hey! Your current EXP is: *{exp}*."
 
-        # --- FIX: extract string JID ---
-        recipient_jid_str = M.gcjid if M.chat == "group" else M.sender.jid
-        if hasattr(recipient_jid_str, "User"):
-            recipient_jid_str = recipient_jid_str.User  # get raw string from JID object
+        # --- FIX ---
+        # Get numeric strings for JIDs
+        to_jid = M.gcjid if M.chat == "group" else M.sender.number
+        sender_jid = M.sender.number
 
-        sender_jid_str = M.sender.jid
-        if hasattr(sender_jid_str, "User"):
-            sender_jid_str = sender_jid_str.User
-
+        # Send the message with proper ghost_mentions
         self.client.send_message(
-            to=self.client.build_jid(recipient_jid_str),
+            to=self.client.build_jid(to_jid),
             message=reply_text,
-            ghost_mentions=[self.client.build_jid(sender_jid_str)]
+            ghost_mentions=[sender_jid]  # numeric string, NOT JID object
         )
