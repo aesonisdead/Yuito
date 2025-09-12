@@ -9,18 +9,15 @@ from neonize.events import (
     ConnectedEv,
     MessageEv,
     JoinedGroupEv,
-    CallOfferEv,
     GroupInfoEv,
+    CallOfferEv,
     PairStatusEv,
     event,
 )
 
 sys.path.insert(0, os.getcwd())
 
-def interrupted(*_):
-    event.set()
-
-log = logging.getLogger()
+log = logging.getLogger("Void")
 log.setLevel(logging.INFO)
 
 class Void(NewClient):
@@ -29,7 +26,7 @@ class Void(NewClient):
 
         self.__msg_id = []
 
-        # Register the methods as event handlers
+        # Register events
         self.event(MessageEv)(self.on_message)
         self.event(ConnectedEv)(self.on_connected)
         self.event(GroupInfoEv)(self.on_groupevent)
@@ -38,7 +35,7 @@ class Void(NewClient):
         self.event(PairStatusEv)(self.on_pair_status)
         self.event.paircode(self.on_paircode)
 
-        # Register client utils
+        # Utils
         self.extract_text = extract_text
         self.FFmpeg = FFmpeg
         self.save_file_to_temp_directory = save_file_to_temp_directory
@@ -78,9 +75,7 @@ class Void(NewClient):
 
     def on_connected(self, _: NewClient, __: ConnectedEv):
         self.__message.load_commands("src/commands")
-        self.log.info(
-            f"⚡ Connected to {self.config.name} and prefix is {self.config.prefix}"
-        )
+        self.log.info(f"⚡ Connected to {self.config.name} | Prefix: {self.config.prefix}")
 
     def on_paircode(self, _: NewClient, code: str, connected: bool = True):
         if connected:
@@ -97,47 +92,27 @@ class Void(NewClient):
     def on_call(self, _, event: CallOfferEv):
         self.__event.on_call(event)
 
-    @staticmethod
-    def detect_message_type(msg) -> str | None:
-        message_types = {
-            "imageMessage": "IMAGE",
-            "audioMessage": "AUDIO",
-            "videoMessage": "VIDEO",
-            "documentMessage": "DOCUMENT",
-            "stickerMessage": "STICKER",
-        }
-        for attr, desc in message_types.items():
-            if msg.HasField(attr):
-                return desc
-        return None
+    def on_pair_status(self, _: NewClient, message: PairStatusEv):
+        self.log.info(f"Logged in as {message.ID.User}")
 
     def filter_admin_users(self, participants):
-        return [
-            participant.JID.User
-            for participant in participants
-            if participant.IsAdmin
-        ]
+        return [p.JID.User for p in participants if p.IsAdmin]
 
-    def on_pair_status(self, _: NewClient, message: PairStatusEv):
-        self.log.info(f"logged as {message.ID.User}")
-
-    # --- FIXED: reply_message_tag supports mentions ---
+    # --- FIXED TAGGING METHOD ---
     def reply_message_tag(self, text, M, mentions=None):
         """
-        Sends a message replying to M and tagging users.
-        - text: string content
-        - M: the original MessageClass object
-        - mentions: list of JID objects to tag
+        Sends a message replying to M and tagging users properly.
         """
         if mentions is None:
             mentions = []
 
         try:
+            ghost_str = ",".join(mentions) if mentions else None
+
             self.send_message(
-                chat_id=M.gcjid,
-                text=text,
-                reply_to=M.raw().Info.ID,
-                mentions=mentions  # crucial for tagging in groups
+                M.gcjid,           # chat JID
+                text,              # message text
+                ghost_mentions=ghost_str
             )
         except Exception as e:
             self.log.error(f"Error in reply_message_tag: {e}")
