@@ -120,18 +120,22 @@ class Void(NewClient):
 
     # --- WORKING reply_message_tag ---
     def reply_message_tag(self, text: str, M):
-        """
-        Reply to a message with proper tagging of the sender.
-        Works in DMs and group chats.
-        """
-        try:
-            mentions = [M.sender_jid]
-            chat_id = M.gcjid if getattr(M, "chat", "dm") == "group" else self.build_jid(M.sender.number)
+    """
+    Reply to a message with proper tagging of the sender.
+    Works in DMs and group chats.
+    """
+    try:
+        # Build sender JID from number
+        sender_jid = self.build_jid(M.sender.number)
+        mentions = [sender_jid]
 
-            # send_message with proper tagging (positional args)
-            self.send_message(chat_id, text, mentions)
+        # Determine chat ID
+        chat_id = M.gcjid if getattr(M, "chat", "dm") == "group" else sender_jid
 
-        except Exception as e:
-            self.log.error(f"Error in reply_message_tag: {e}")
-            # fallback
-            self.reply_message(text, M)
+        # Send message with mentions
+        self.send_message(chat_id, text, mentions)
+
+    except Exception as e:
+        self.log.error(f"Error in reply_message_tag: {e}")
+        # fallback
+        self.reply_message(text, M)
