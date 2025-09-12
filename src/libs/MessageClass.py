@@ -14,15 +14,16 @@ class MessageClass:
         self.gcjid = self.Info.MessageSource.Chat
         self.chat = "group" if self.Info.MessageSource.IsGroup else "dm"
 
-        # --- FIXED: convert JID object to string ---
-        sender_jid = str(self.Info.MessageSource.Sender)  # Full JID as string
-        sender_number = sender_jid.split("@")[0]          # Number for display
+        # --- FIXED: keep JID object for get_contact ---
+        sender_jid_obj = self.Info.MessageSource.Sender  # JID object
+        sender_jid_str = str(sender_jid_obj)              # Convert to string for splitting
+        sender_number = sender_jid_str.split("@")[0]     # Number for display
 
         self.sender = DynamicConfig(
             {
-                "jid": sender_jid,        # full JID for tagging
-                "number": sender_number,  # number for display
-                "username": client.contact.get_contact(sender_jid).PushName,
+                "jid": sender_jid_obj,                    # JID object for tagging
+                "number": sender_number,                  # number for display
+                "username": client.contact.get_contact(sender_jid_obj).PushName,
             }
         )
 
@@ -39,23 +40,22 @@ class MessageClass:
                 self.quoted = ctx_info.quotedMessage
 
                 if ctx_info.HasField("participant"):
-                    quoted_number = str(ctx_info.participant).split("@")[0]
+                    quoted_jid_obj = ctx_info.participant      # JID object or string depending on library
+                    quoted_number = str(quoted_jid_obj).split("@")[0]
                     self.quoted_user = DynamicConfig(
                         {
                             "number": quoted_number,
-                            "username": client.contact.get_contact(
-                                ctx_info.participant
-                            ).PushName,
+                            "username": client.contact.get_contact(quoted_jid_obj).PushName,
                         }
                     )
 
-            for jid in ctx_info.mentionedJID:
-                number = str(jid).split("@")[0]
+            for jid_obj in ctx_info.mentionedJID:
+                number = str(jid_obj).split("@")[0]
                 self.mentioned.append(
                     DynamicConfig(
                         {
                             "number": number,
-                            "username": client.contact.get_contact(jid).PushName,
+                            "username": client.contact.get_contact(jid_obj).PushName,
                         }
                     )
                 )
