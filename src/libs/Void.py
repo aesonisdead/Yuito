@@ -15,16 +15,12 @@ from neonize.events import (
     event,
 )
 
-
 sys.path.insert(0, os.getcwd())
-
 
 def interrupted(*_):
     event.set()
 
-
 log.setLevel(logging.INFO)
-
 
 class Void(NewClient):
     def __init__(self, db_path, config, log):
@@ -125,16 +121,10 @@ class Void(NewClient):
     def on_pair_status(self, _: NewClient, message: PairStatusEv):
         self.log.info(f"logged as {message.ID.User}")
 
-    # --- START OF FIX ---
+    # --- FIXED reply_message_tag ---
     def reply_message_tag(self, text: str, M):
-        """
-        Sends a message replying to M, and tags the sender in groups.
-        In DMs, it just sends normally.
-        """
-        # Build sender full JID
         sender_jid = self.build_jid(M.sender.number)
 
-        # Determine chat type
         if getattr(M, "chat", "dm") == "group":
             context_info = {"mentionedJid": [sender_jid]}
             chat_id = M.gcjid
@@ -142,10 +132,8 @@ class Void(NewClient):
             context_info = None
             chat_id = sender_jid
 
-        # Send the message
-        self.send_message(
-            text=text,
-            chat_id=chat_id,
-            context_info=context_info,
-        )
-    # --- END OF FIX ---
+        # Use positional arguments (no keywords!)
+        if context_info:
+            self.send_message(chat_id, text, context_info)
+        else:
+            self.send_message(chat_id, text)
