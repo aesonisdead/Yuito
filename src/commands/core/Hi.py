@@ -18,17 +18,18 @@ class Command(BaseCommand):
         user = self.client.db.get_user_by_number(M.sender.number)
         exp = getattr(user, "exp", 0)
 
-        reply_text = f"🎯 Hey! Your current EXP is: *{exp}*."
+        # CLEAN the number
+        sender_number = str(M.sender.number).replace('User: ', '').replace('"', '').strip()
 
-        # --- CLEAN numeric strings ---
-        to_jid = M.gcjid if M.chat == "group" else M.sender.number
-        # Remove any extra text, spaces, or prefixes
+        # Compose message
+        reply_text = f"🎯 Hey @{sender_number}! Your current EXP is: *{exp}*."
+
+        # Determine target JID
+        to_jid = M.gcjid if M.chat == "group" else sender_number
         to_jid = str(to_jid).replace('User: ', '').replace('"', '').strip()
-        sender_jid = str(M.sender.number).replace('User: ', '').replace('"', '').strip()
 
-        # Send message
+        # Send message — don't put ghost_mentions as list if message contains @
         self.client.send_message(
             to=self.client.build_jid(to_jid),
-            message=reply_text,
-            ghost_mentions=[sender_jid]
+            message=reply_text
         )
