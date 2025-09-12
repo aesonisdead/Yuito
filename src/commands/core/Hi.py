@@ -19,14 +19,15 @@ class Command(BaseCommand):
         exp = getattr(user, "exp", 0)
 
         # Safe display name
-        display_name = getattr(M.sender, "pushname", None) or getattr(M.sender, "number", "Unknown")
+        number = getattr(M.sender, "number", "Unknown")
+        pushname = getattr(M.sender, "pushname", "User")
         jid = getattr(M.sender, "jid", "")
 
-        # Set mentions for Neonize internally
+        # Set internal mentions for Neonize
         M.mentioned_jid = [jid]
 
-        # Compose message
-        text = f"🎯 Hey @{display_name}! Your current EXP is: *{exp}*."
+        # Compose message with number + pushname for readability
+        text = f"🎯 Hey @{number} ({pushname})! Your current EXP is: *{exp}*."
 
-        # Reply (no extra args)
+        # Reply
         self.client.reply_message(text, M)
