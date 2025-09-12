@@ -1,19 +1,24 @@
-# src/commands/core/Hi.py
+from libs import BaseCommand, MessageClass
 
-from libs import BaseCommand
 
-class HiCmd(BaseCommand):
-    name = "hi"
-    category = "Core"
-    description = "Say hi and show EXP"
+class Command(BaseCommand):
 
-    def exec(self, M, contex):
-        try:
-            exp = contex.get_user_exp(M.sender.number)  # assuming you have a method to get user EXP
-            reply_text = f"🎯 Hey! Your current EXP is: *{exp}*."
+    def __init__(self, client, handler):
+        super().__init__(
+            client,
+            handler,
+            {
+                "command": "hi",
+                "category": "core",
+                "description": {"content": "Say hello to the bot"},
+                "exp": 1,
+            },
+        )
 
-            # Send the reply using the proper tagging
-            self.client.reply_message_tag(reply_text, M)
+    def exec(self, M: MessageClass, _):
+        user = self.client.db.get_user_by_number(M.sender.number)
+        exp = getattr(user, "exp", 0)
 
-        except Exception as e:
-            self.client.log.error(f"Hi command failed: {e}")
+        self.client.reply_message(
+            f"🎯 Hey *@{M.sender.number}*! Your current EXP is: *{exp}*.", M
+        )
