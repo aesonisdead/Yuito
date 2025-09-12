@@ -21,14 +21,14 @@ class Command(BaseCommand):
 
         # Safe display name
         display_name = getattr(M.sender, "pushname", None) or getattr(M.sender, "number", "Unknown")
-        mention_data = format_mention(getattr(M.sender, "jid", ""), display_name)
+        jid = getattr(M.sender, "jid", "")
 
         # Compose message
-        text = f"🎯 Hey {mention_data['text']}! Your current EXP is: *{exp}*."
+        text = f"🎯 Hey @{display_name}! Your current EXP is: *{exp}*."
 
-        # Send message with proper tagging
+        # Send message using proper mentions argument
         self.client.reply_message(
             text,
             M,
-            context_info=mention_data["context_info"]
+            mentions=[jid]  # <- this is the fix
         )
