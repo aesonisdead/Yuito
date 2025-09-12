@@ -99,20 +99,21 @@ class Void(NewClient):
         return [p.JID.User for p in participants if p.IsAdmin]
 
     # --- FIXED TAGGING METHOD ---
-    def reply_message_tag(self, text, M, mentions=None):
-        """
-        Sends a message replying to M and tagging users properly.
-        """
-        if mentions is None:
-            mentions = []
+    def reply_message_tag(self, text: str, M):
+    """
+    Send a message tagging the sender properly in groups.
+    """
+    try:
+        to_jid = M.gcjid if M.chat == "group" else M.sender.number + "@s.whatsapp.net"
 
-        try:
-            ghost_str = ",".join(mentions) if mentions else None
+        ghost_mentions = None
+        if M.chat == "group":
+            ghost_mentions = M.sender.number + "@s.whatsapp.net"
 
-            self.send_message(
-                M.gcjid,           # chat JID
-                text,              # message text
-                ghost_mentions=ghost_str
-            )
-        except Exception as e:
-            self.log.error(f"Error in reply_message_tag: {e}")
+        self.send_message(
+            to=self.build_jid(to_jid),
+            message=text,
+            ghost_mentions=ghost_mentions,
+        )
+    except Exception as e:
+        self.log.error(f"SendMessage failed: {e}")
