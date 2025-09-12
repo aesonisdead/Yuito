@@ -17,13 +17,11 @@ from neonize.events import (
 
 sys.path.insert(0, os.getcwd())
 
-log = logging.getLogger(__name__)
-
 def interrupted(*_):
     event.set()
 
+log = logging.getLogger()
 log.setLevel(logging.INFO)
-
 
 class Void(NewClient):
     def __init__(self, db_path, config, log):
@@ -31,7 +29,7 @@ class Void(NewClient):
 
         self.__msg_id = []
 
-        # Register the methods as event handlers
+        # Register event handlers
         self.event(MessageEv)(self.on_message)
         self.event(ConnectedEv)(self.on_connected)
         self.event(GroupInfoEv)(self.on_groupevent)
@@ -40,7 +38,7 @@ class Void(NewClient):
         self.event(PairStatusEv)(self.on_pair_status)
         self.event.paircode(self.on_paircode)
 
-        # Client utilities
+        # Utils
         self.extract_text = extract_text
         self.FFmpeg = FFmpeg
         self.save_file_to_temp_directory = save_file_to_temp_directory
@@ -72,7 +70,9 @@ class Void(NewClient):
         self.db = Database(config.uri)
         self.log = log
 
+    # -------------------------
     # Event handlers
+    # -------------------------
     def on_message(self, _: NewClient, message: MessageEv):
         if message.Info.ID not in self.__msg_id:
             from libs import MessageClass
@@ -101,8 +101,11 @@ class Void(NewClient):
         self.__event.on_call(event)
 
     def on_pair_status(self, _: NewClient, message: PairStatusEv):
-        self.log.info(f"logged as {message.ID.User}")
+        self.log.info(f"Logged as {message.ID.User}")
 
+    # -------------------------
+    # Utility methods
+    # -------------------------
     @staticmethod
     def detect_message_type(msg) -> str | None:
         message_types = {
@@ -124,17 +127,18 @@ class Void(NewClient):
             if participant.IsAdmin
         ]
 
-    # Fixed method for tagged replies
     def reply_message_tag(self, text: str, msg, ghost_mentions: list[str] | None = None):
         """
         Send a message that tags the sender or specific users.
-        `msg` must be a MessageClass object
         """
         try:
-            to_jid = msg.gcjid if msg.chat == "group" else msg.sender.number
-            # Determine mentions
+            # Determine who to send to
+            to_jid = msg.gcjid if getattr(msg, "chat", None) == "group" else msg.sender.number
+
+            # Determine who to mention
             mentions = [msg.sender.number] if ghost_mentions is None else ghost_mentions
-            # Send the message
+
+            # Send message
             self.send_message(
                 to=self.build_jid(to_jid),
                 message=text,
