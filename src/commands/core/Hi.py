@@ -14,22 +14,19 @@ class Command(BaseCommand):
         )
 
     def exec(self, M: MessageClass, _):
-        # Get user EXP from database
+        # Get user EXP
         user = self.client.db.get_user_by_number(getattr(M.sender, "number", ""))
         exp = getattr(user, "exp", 0)
 
-        # Safe display name
-        number = getattr(M.sender, "number", "Unknown")
-        pushname = getattr(M.sender, "pushname", "User")
+        # Determine JID for proper tagging
         sender_jid = getattr(M.sender, "jid", "")
 
-        # If message is in a group, fetch participants synchronously
+        # If message is in a group, get the exact participant JID
         if getattr(M, "is_group", False):
             try:
-                group_participants = self.client.get_group_members(M.chat)  # synchronous call
-                # Match the sender number to get exact participant JID
+                group_participants = self.client.get_group_members(M.chat)
                 for p in group_participants:
-                    if number in getattr(p, "number", ""):
+                    if getattr(p, "number", "") == getattr(M.sender, "number", ""):
                         sender_jid = getattr(p, "jid", sender_jid)
                         break
             except Exception:
@@ -38,8 +35,8 @@ class Command(BaseCommand):
         # Set mentioned_jid so WhatsApp tags properly
         M.mentioned_jid = [sender_jid]
 
-        # Compose message
-        text = f"🎯 Hey @{pushname}! Your current EXP is: *{exp}*."
+        # **Use placeholder @0 to tag the first JID in mentioned_jid**
+        text = f"🎯 Hey @0! Your current EXP is: *{exp}*."
 
-        # Reply (synchronous)
+        # Reply message
         self.client.reply_message(text, M)
