@@ -13,21 +13,29 @@ class Command(BaseCommand):
             },
         )
 
-    def exec(self, M: MessageClass, _):
-        # Get user EXP
+    async def exec(self, M: MessageClass, _):
+        # Get user EXP from database
         user = self.client.db.get_user_by_number(getattr(M.sender, "number", ""))
         exp = getattr(user, "exp", 0)
 
         # Safe display name
         number = getattr(M.sender, "number", "Unknown")
         pushname = getattr(M.sender, "pushname", "User")
-        jid = getattr(M.sender, "jid", "")
 
-        # Set internal mentions for Neonize
-        M.mentioned_jid = [jid]
+        # Determine JID for proper tagging
+        sender_jid = getattr(M.sender, "jid", "")
 
-        # Compose message with number + pushname for readability
-        text = f"🎯 Hey @{number} ({pushname})! Your current EXP is: *{exp}*."
+        # If message is in a group, fetch actual group participant JID
+        if getattr(M, "is_group", False):
+            group_jids = [p.jid for p in await self.client.get_group_members(M.chat)]
+            # Match the sender number to get the exact participant JID
+            sender_jid = next((jid for jid in group_jids if number in jid), sender_jid)
 
-        # Reply
-        self.client.reply_message(text, M)
+        # Set mentioned_jid so WhatsApp tags properly
+        M.mentioned_jid = [sender_jid]
+
+        # Compose message
+        text = f"🎯 Hey @{pushname}! Your current EXP is: *{exp}*."
+
+        # Reply (Neonize handles the tagging internally)
+        await self.client.reply_message(text, M)
