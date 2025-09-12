@@ -17,9 +17,11 @@ from neonize.events import (
 
 sys.path.insert(0, os.getcwd())
 
+def interrupted(*_):
+    event.set()
+
 log = logging.getLogger()
 log.setLevel(logging.INFO)
-
 
 class Void(NewClient):
     def __init__(self, db_path, config, log):
@@ -27,7 +29,7 @@ class Void(NewClient):
 
         self.__msg_id = []
 
-        # Register event handlers
+        # Register the methods as event handlers
         self.event(MessageEv)(self.on_message)
         self.event(ConnectedEv)(self.on_connected)
         self.event(GroupInfoEv)(self.on_groupevent)
@@ -36,18 +38,39 @@ class Void(NewClient):
         self.event(PairStatusEv)(self.on_pair_status)
         self.event.paircode(self.on_paircode)
 
-        # Utils
+        # Register client utils
         self.extract_text = extract_text
+        self.FFmpeg = FFmpeg
+        self.save_file_to_temp_directory = save_file_to_temp_directory
+        self.get_bytes_from_name_or_url = get_bytes_from_name_or_url
+        self.AspectRatioMethod = AspectRatioMethod
         self.build_jid = build_jid
+        self.Jid2String = Jid2String
+        self.JIDToNonAD = JIDToNonAD
+        self.MediaType = MediaType
+        self.MediaTypeToMMS = MediaTypeToMMS
+        self.BlocklistAction = BlocklistAction
+        self.ChatPresence = ChatPresence
+        self.ChatPresenceMedia = ChatPresenceMedia
+        self.ClientName = ClientName
+        self.ClientType = ClientType
+        self.ParticipantChange = ParticipantChange
+        self.ParticipantRequestChange = ParticipantRequestChange
+        self.PrivacySetting = PrivacySetting
+        self.PrivacySettingType = PrivacySettingType
+        self.ReceiptType = ReceiptType
+        self.add_exif = add_exif
+        self.validate_link = validate_link
+        self.gen_vcard = gen_vcard
+
+        self.config = config
+        self.__event = Event(self)
+        self.__message = Message(self)
         self.utils = Utils()
         self.db = Database(config.uri)
         self.log = log
-        self.__message = Message(self)
-        self.__event = Event(self)
-        self.config = config
 
-    # --- Event handlers ---
-    def on_message(self, _: NewClient, message):
+    def on_message(self, _: NewClient, message: MessageEv):
         if message.Info.ID not in self.__msg_id:
             from libs import MessageClass
             self.__msg_id.append(message.Info.ID)
@@ -74,33 +97,47 @@ class Void(NewClient):
     def on_call(self, _, event: CallOfferEv):
         self.__event.on_call(event)
 
-    def on_pair_status(self, _: NewClient, message):
-        self.log.info(f"logged as {message.ID.User}")
+    @staticmethod
+    def detect_message_type(msg) -> str | None:
+        message_types = {
+            "imageMessage": "IMAGE",
+            "audioMessage": "AUDIO",
+            "videoMessage": "VIDEO",
+            "documentMessage": "DOCUMENT",
+            "stickerMessage": "STICKER",
+        }
+        for attr, desc in message_types.items():
+            if msg.HasField(attr):
+                return desc
+        return None
 
-    # --- Messaging utilities ---
-    def reply_message_tag(self, text: str, M):
-        """
-        Reply to a message with proper tagging of the sender.
-        Works in DMs and group chats.
-        """
-        try:
-            sender_jid = M.sender.jid  # <-- use the JID stored in MessageClass
-            mentions = [sender_jid]
-
-            chat_id = M.gcjid if getattr(M, "chat", "dm") == "group" else sender_jid
-
-            # Some libraries require "text=" param
-            self.send_message(chat_id, text=text, mentions=mentions)
-
-        except Exception as e:
-            self.log.error(f"Error in reply_message_tag: {e}")
-            # fallback
-            self.reply_message(text, M)
-
-    # --- Other utilities ---
     def filter_admin_users(self, participants):
         return [
             participant.JID.User
             for participant in participants
             if participant.IsAdmin
         ]
+
+    def on_pair_status(self, _: NewClient, message: PairStatusEv):
+        self.log.info(f"logged as {message.ID.User}")
+
+    # --- FIXED: reply_message_tag supports mentions ---
+    def reply_message_tag(self, text, M, mentions=None):
+        """
+        Sends a message replying to M and tagging users.
+        - text: string content
+        - M: the original MessageClass object
+        - mentions: list of JID objects to tag
+        """
+        if mentions is None:
+            mentions = []
+
+        try:
+            self.send_message(
+                chat_id=M.gcjid,
+                text=text,
+                reply_to=M.raw().Info.ID,
+                mentions=mentions  # crucial for tagging in groups
+            )
+        except Exception as e:
+            self.log.error(f"Error in reply_message_tag: {e}")
