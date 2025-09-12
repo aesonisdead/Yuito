@@ -15,12 +15,13 @@ class MessageClass:
         self.chat = "group" if self.Info.MessageSource.IsGroup else "dm"
 
         sender_number = self.Info.MessageSource.Sender.User
+        sender_jid = self.Info.MessageSource.Sender.JID  # <-- Store the full JID
+
         self.sender = DynamicConfig(
             {
                 "number": sender_number,
-                "username": client.contact.get_contact(
-                    client.build_jid(sender_number)
-                ).PushName,
+                "username": client.contact.get_contact(sender_jid).PushName,
+                "jid": sender_jid,  # <-- Add this
             }
         )
 
@@ -38,12 +39,12 @@ class MessageClass:
 
                 if ctx_info.HasField("participant"):
                     quoted_number = ctx_info.participant.split("@")[0]
+                    quoted_jid = ctx_info.participant
                     self.quoted_user = DynamicConfig(
                         {
                             "number": quoted_number,
-                            "username": client.contact.get_contact(
-                                client.build_jid(quoted_number)
-                            ).PushName,
+                            "username": client.contact.get_contact(quoted_jid).PushName,
+                            "jid": quoted_jid,
                         }
                     )
 
@@ -53,9 +54,8 @@ class MessageClass:
                     DynamicConfig(
                         {
                             "number": number,
-                            "username": client.contact.get_contact(
-                                client.build_jid(number)
-                            ).PushName,
+                            "username": client.contact.get_contact(jid).PushName,
+                            "jid": jid,
                         }
                     )
                 )
