@@ -2,6 +2,7 @@ from libs import Void
 from utils import DynamicConfig
 from neonize.events import MessageEv
 
+
 class MessageClass:
     def __init__(self, client: Void, message: MessageEv):
         self.__client = client
@@ -13,16 +14,12 @@ class MessageClass:
         self.gcjid = self.Info.MessageSource.Chat
         self.chat = "group" if self.Info.MessageSource.IsGroup else "dm"
 
-        # --- FIX: store full JID properly ---
-        sender_number = self.Info.MessageSource.Sender.User
-        sender_jid_obj = getattr(self.Info.MessageSource.Sender, "JID", None)
+        # Get the sender JID as a proper string
+        self.sender_number = str(self.Info.MessageSource.Sender.User)
         self.sender = DynamicConfig(
             {
-                "number": sender_number,
-                "jid": str(sender_jid_obj) if sender_jid_obj else self.__client.build_jid(sender_number),
-                "username": self.__client.contact.get_contact(
-                    self.__client.build_jid(sender_number)
-                ).PushName,
+                "number": self.sender_number,
+                "username": client.contact.get_contact(self.sender_number).PushName,
             }
         )
 
@@ -39,25 +36,21 @@ class MessageClass:
                 self.quoted = ctx_info.quotedMessage
 
                 if ctx_info.HasField("participant"):
-                    quoted_number = ctx_info.participant.split("@")[0]
+                    quoted_number = str(ctx_info.participant.split("@")[0])
                     self.quoted_user = DynamicConfig(
                         {
                             "number": quoted_number,
-                            "username": client.contact.get_contact(
-                                client.build_jid(quoted_number)
-                            ).PushName,
+                            "username": client.contact.get_contact(quoted_number).PushName,
                         }
                     )
 
             for jid in ctx_info.mentionedJID:
-                number = jid.split("@")[0]
+                number = str(jid.split("@")[0])
                 self.mentioned.append(
                     DynamicConfig(
                         {
                             "number": number,
-                            "username": client.contact.get_contact(
-                                client.build_jid(number)
-                            ).PushName,
+                            "username": client.contact.get_contact(number).PushName,
                         }
                     )
                 )
