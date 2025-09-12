@@ -1,6 +1,5 @@
 from libs import BaseCommand, MessageClass
 
-
 class Command(BaseCommand):
     def __init__(self, client, handler):
         super().__init__(
@@ -15,11 +14,12 @@ class Command(BaseCommand):
         )
 
     def exec(self, M: MessageClass, _):
+        # Get user from database
         user = self.client.db.get_user_by_number(M.sender.number)
         exp = getattr(user, "exp", 0)
 
-        # Simple text; WhatsApp will highlight/tag correctly in groups
-        reply_text = f"🎯 Hey! Your current EXP is: *{exp}*."
+        # Build the reply text with @number for tagging
+        reply_text = f"🎯 Hey @{M.sender.number}! Your current EXP is: *{exp}*."
 
-        # Send message with proper mention
+        # Send the reply using reply_message_tag, which handles mentions
         self.client.reply_message_tag(reply_text, M)
