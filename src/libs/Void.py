@@ -125,17 +125,17 @@ class Void(NewClient):
     Works in DMs and group chats.
     """
     try:
-        # Build sender JID from number
+        # Build the full sender JID from the sender's number
         sender_jid = self.build_jid(M.sender.number)
         mentions = [sender_jid]
 
-        # Determine chat ID
+        # Determine the chat ID: group chat or DM
         chat_id = M.gcjid if getattr(M, "chat", "dm") == "group" else sender_jid
 
-        # Send message with mentions
+        # Send the message with proper mentions
         self.send_message(chat_id, text, mentions)
 
     except Exception as e:
+        # Log the error and fallback to simple reply
         self.log.error(f"Error in reply_message_tag: {e}")
-        # fallback
         self.reply_message(text, M)
