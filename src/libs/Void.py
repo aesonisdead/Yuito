@@ -17,10 +17,13 @@ from neonize.events import (
 
 sys.path.insert(0, os.getcwd())
 
+
 def interrupted(*_):
     event.set()
 
+
 log.setLevel(logging.INFO)
+
 
 class Void(NewClient):
     def __init__(self, db_path, config, log):
@@ -123,17 +126,36 @@ class Void(NewClient):
 
     # --- FIXED reply_message_tag ---
     def reply_message_tag(self, text: str, M):
-        sender_jid = self.build_jid(M.sender.number)
+        """
+        Reply to a message with proper tagging of the sender.
+        Works in DMs and group chats.
+        """
+        try:
+            # Extract raw number from sender_jid
+            raw_number = getattr(M.sender_jid, "user", None) or getattr(M.sender, "number", None)
+            if not raw_number:
+                raw_number = M.sender.number  # fallback
 
-        if getattr(M, "chat", "dm") == "group":
-            context_info = {"mentionedJid": [sender_jid]}
-            chat_id = M.gcjid
-        else:
-            context_info = None
-            chat_id = sender_jid
+            # Prepend + to make proper phone format
+            proper_number = f"+{raw_number}"
 
-        # Use positional arguments (no keywords!)
-        if context_info:
-            self.send_message(chat_id, text, context_info)
-        else:
-            self.send_message(chat_id, text)
+            # Build final text
+            final_text = text.replace(str(M.sender.number), proper_number)
+
+            # Determine chat ID
+            if getattr(M, "chat", "dm") == "group":
+                chat_id = M.gcjid
+                context_info = {"mentionedJid": [f"{raw_number}@s.whatsapp.net"]}
+                self.send_message(chat_id, final_text, context_info)
+            else:
+                # DM
+                chat_id = self.build_jid(raw_number)
+                self.send_message(chat_id, final_text)
+
+        except Exception as e:
+            try:
+                self.log.error("Error in reply_message_tag: %s", e)
+                # fallback
+                self.reply_message(text, M)
+            except Exception:
+                pass
